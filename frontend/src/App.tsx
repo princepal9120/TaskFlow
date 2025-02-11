@@ -1,5 +1,4 @@
-// src/App.js
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, ChangeEvent, FormEvent } from "react";
 import {
   Box,
   Container,
@@ -39,6 +38,10 @@ import ReactFlow, {
   MiniMap,
   applyEdgeChanges,
   applyNodeChanges,
+  Node,
+  Edge,
+  NodeChange,
+  EdgeChange,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import axios from "axios";
@@ -71,21 +74,43 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+interface Task {
+  id: number;
+  title: string;
+  description: string;
+  parent_id: number | null;
+  status: string;
+  position?: { x: number; y: number };
+}
+
+interface AlertState {
+  open: boolean;
+  message: string;
+  severity: "success" | "error" | "warning" | "info";
+}
+
+interface FormData {
+  title: string;
+  description: string;
+  parent_id: string;
+  status: string;
+}
+
 function App() {
-  const [tasks, setTasks] = useState([]);
-  const [view, setView] = useState("list");
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState([]);
-  const [alert, setAlert] = useState({
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [view, setView] = useState<"list" | "flow">("list");
+  const [openDialog, setOpenDialog] = useState<boolean>(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const [alert, setAlert] = useState<AlertState>({
     open: false,
     message: "",
     severity: "success",
   });
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     title: "",
     description: "",
     parent_id: "",
@@ -95,7 +120,7 @@ function App() {
   // Fetch tasks
   const fetchTasks = async () => {
     try {
-      const response = await api.get("/tasks/");
+      const response = await api.get<Task[]>("/tasks/");
       setTasks(response.data);
       updateFlowElements(response.data);
     } catch (error) {
@@ -108,7 +133,7 @@ function App() {
   }, []);
 
   // Convert tasks to flow elements
-  const updateFlowElements = (taskList) => {
+  const updateFlowElements = (taskList: Task[]) => {
     const newNodes = taskList.map((task) => ({
       id: task.id.toString(),
       type: "default",
@@ -137,7 +162,7 @@ function App() {
       .filter((task) => task.parent_id)
       .map((task) => ({
         id: `e${task.parent_id}-${task.id}`,
-        source: task.parent_id.toString(),
+        source: task.parent_id!.toString(),
         target: task.id.toString(),
         type: "smoothstep",
         animated: true,
@@ -150,23 +175,23 @@ function App() {
 
   // Handle node changes in flow view
   const onNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
     [setNodes]
   );
 
   // Handle edge changes in flow view
   const onEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
     [setEdges]
   );
 
   // Show alert message
-  const showAlert = (message, severity = "success") => {
+  const showAlert = (message: string, severity: AlertState["severity"] = "success") => {
     setAlert({ open: true, message, severity });
   };
 
   // Handle form submission
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       if (selectedTask) {
@@ -184,7 +209,7 @@ function App() {
   };
 
   // Handle task deletion
-  const handleDeleteTask = async (id) => {
+  const handleDeleteTask = async (id: number) => {
     try {
       await api.delete(`/tasks/${id}`);
       showAlert("Task deleted successfully");
@@ -195,7 +220,7 @@ function App() {
   };
 
   // Dialog handlers
-  const handleOpenDialog = (task = null) => {
+  const handleOpenDialog = (task: Task | null = null) => {
     setSelectedTask(task);
     setFormData(
       task || {
@@ -326,7 +351,7 @@ function App() {
                   <TextField
                     label="Title"
                     value={formData.title}
-                    onChange={(e) =>
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setFormData({ ...formData, title: e.target.value })
                     }
                     fullWidth
@@ -335,7 +360,7 @@ function App() {
                   <TextField
                     label="Description"
                     value={formData.description}
-                    onChange={(e) =>
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
                     fullWidth
@@ -345,7 +370,7 @@ function App() {
                   <TextField
                     label="Parent Task ID"
                     value={formData.parent_id}
-                    onChange={(e) =>
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setFormData({ ...formData, parent_id: e.target.value })
                     }
                     fullWidth
@@ -355,7 +380,7 @@ function App() {
                     select
                     label="Status"
                     value={formData.status}
-                    onChange={(e) =>
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
                       setFormData({ ...formData, status: e.target.value })
                     }
                     fullWidth
